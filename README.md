@@ -8,7 +8,7 @@ It's a Vite+React app that communicates with the Base44 API.
 
 ```bash
 npm install
-npm run dev
+npm run start
 ```
 
 ## Building the app

@@ -7,6 +7,8 @@ It's a Vite+React app that communicates with the Base44 API.
 ## Running the app
 
 ```bash
+python -m venv venv
+.\venv\Scripts\Activate
 npm install
 npm run start
 ```

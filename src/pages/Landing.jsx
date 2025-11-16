@@ -89,9 +89,9 @@ export default function Landing() {
   const currentClip = clips[currentClipIndex];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900" style={{ fontFamily: 'Satoshi, sans-serif' }}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900" style={{ fontFamily: 'Urbanist, sans-serif' }}>
       <style>{`
-        @import url('https://api.fonts.coollabs.io/css2?family=Satoshi:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
         
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
@@ -164,7 +164,7 @@ export default function Landing() {
                 <Link to={createPageUrl('Pricing')}>
                   <Button
                     variant="outline"
-                    className="border-2 border-white/20 text-white hover:bg-white/10 font-bold text-lg px-8 py-7 rounded-xl backdrop-blur-lg"
+                    className="border-2 border-white/20 text-white bg-blue-500 hover:bg-blue-600 font-bold text-lg px-8 py-7 rounded-xl backdrop-blur-lg transition-all"
                   >
                     View Plans
                   </Button>
@@ -699,7 +699,7 @@ export default function Landing() {
               <Link to={createPageUrl('Pricing')}>
                 <Button
                   variant="outline"
-                  className="border-2 border-white/30 text-white hover:bg-white/10 font-bold text-xl px-12 py-8 rounded-xl backdrop-blur-lg"
+                  className="border-2 border-white/30 text-white bg-transparent hover:bg-white/10 font-bold text-xl px-12 py-8 rounded-xl backdrop-blur-lg transition-all"
                 >
                   See All Plans
                 </Button>

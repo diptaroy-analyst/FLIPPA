@@ -1,16 +1,18 @@
-
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { User, Crown, Menu, X, Home, Lock } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Layout({ children, currentPageName }) {
-  const [user, setUser] = useState(null);
+  // use auth context user instead of local user state
+  const { user, setUser, logout } = useAuth();
   const [subscription, setSubscription] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [permissions, setPermissions] = useState(null);
+  const navigate = useNavigate();
 
   // Inline helper functions to avoid import issues
   const getUserRole = (subscription) => {
@@ -58,12 +60,12 @@ export default function Layout({ children, currentPageName }) {
 
   useEffect(() => {
     loadUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadUser = async () => {
     try {
-      // Default to free tier first - with inline permissions to avoid dependency issues
-      setUser(null);
+      // Default to free tier first
       setSubscription(null);
       setUserRole('viewer');
       setPermissions({
@@ -75,25 +77,28 @@ export default function Layout({ children, currentPageName }) {
         advanced_markers: false
       });
 
-      // Check if base44 SDK is available - if not, just use free tier
+      // If base44 SDK not available, attempt to hydrate from localStorage (if context consumer didn't)
       if (typeof base44 === 'undefined' || !base44?.auth?.me) {
-        console.log('base44 SDK not available');
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setUser(parsed);
+        }
         return;
       }
 
-      // Try to load user data (optional)
+      // Try to load user data via SDK
       try {
         const userData = await base44.auth.me();
         if (!userData) {
-          console.log('No user data returned');
           return;
         }
-        
+
+        // set user into context
         setUser(userData);
 
         // Try to load subscription
         try {
-          // Check if Subscription entity and filter method exist
           if (typeof base44.entities?.Subscription?.filter === 'function') {
             const subs = await base44.entities.Subscription.filter({
               user_email: userData.email,
@@ -107,19 +112,15 @@ export default function Layout({ children, currentPageName }) {
               setUserRole(role);
               setPermissions(getUserPermissions(role));
             }
-          } else {
-            console.log('Subscription entity filter not available');
           }
         } catch (subError) {
-          console.log('Could not load subscription:', subError.message);
+          console.log('Could not load subscription:', subError?.message || subError);
         }
       } catch (authError) {
-        console.log('User not authenticated:', authError.message);
+        console.log('User not authenticated:', authError?.message || authError);
       }
     } catch (error) {
-      console.log('Error in loadUser:', error?.message || 'Unknown error');
-      // Ensure defaults on any error
-      setUser(null);
+      console.log('Error in loadUser:', error?.message || error);
       setSubscription(null);
       setUserRole('viewer');
       setPermissions({
@@ -151,26 +152,26 @@ export default function Layout({ children, currentPageName }) {
   const planBadge = getPlanBadge();
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ fontFamily: 'Satoshi, sans-serif' }}>
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: 'Playfair Display, sans-serif' }}>
       <style>{`
-        @import url('https://api.fonts.coollabs.io/css2?family=Satoshi:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
       `}</style>
 
       {/* Navigation Bar */}
-      <nav className="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 border-b border-white/10">
+      <nav className="bg-gradient-to-r from-slate-800 via-purple-800 to-slate-800 border-b border-white/10" style={{ fontFamily: 'Roboto, sans-serif' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <Link
               to={getHomeLink()}
-              className="flex items-center gap-2 text-2xl font-bold text-white hover:text-[#A88A86] transition-colors"
+              className="flex items-center gap-2 text-2xl font-bold text-white hover:text-[#D1B5A3] transition-colors ease-in-out duration-200"
             >
               <Home className="w-6 h-6" />
               flippa
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-6">
+            <div className="hidden md:flex items-center gap-8">
               {user ? (
                 <>
                   {user.user_type === 'creator' && (
@@ -189,7 +190,7 @@ export default function Layout({ children, currentPageName }) {
                       </Link>
                     </>
                   )}
-                  
+
                   {(user.user_type === 'player' || user.user_type === 'parent') && (
                     <>
                       <Link
@@ -239,6 +240,19 @@ export default function Layout({ children, currentPageName }) {
                       </span>
                     </div>
                   </Link>
+
+                  {/* Desktop logout */}
+                  <button
+                    onClick={() => {
+                      // Use context logout, then navigate to login
+                      logout();
+                      navigate('/login');
+                    }}
+                    className="text-red-400 hover:text-red-300 transition-colors font-semibold flex items-center gap-2"
+                  >
+                    <Lock className="w-4 h-4" />
+                    Logout
+                  </button>
                 </>
               ) : (
                 <>
@@ -249,8 +263,8 @@ export default function Layout({ children, currentPageName }) {
                     Pricing
                   </Link>
                   <button
-                    onClick={() => base44.auth.redirectToLogin(window.location.pathname)}
-                    className="px-4 py-2 bg-[#A88A86] hover:bg-[#9A7A76] text-black font-semibold rounded-lg transition-colors"
+                    onClick={() => navigate('/login')}
+                    className="px-4 py-2 bg-[#D1B5A3] hover:bg-[#A88A86] text-black font-semibold rounded-lg transition-colors"
                   >
                     Login
                   </button>
@@ -275,7 +289,7 @@ export default function Layout({ children, currentPageName }) {
               {user ? (
                 <>
                   <div className="flex items-center gap-3 pb-4 border-b border-white/10">
-                    <User className="w-8 h-8 text-[#A88A86]" />
+                    <User className="w-8 h-8 text-[#D1B5A3]" />
                     <div>
                       <div className="text-white font-semibold">{user.full_name || user.email}</div>
                       <div className={`inline-flex items-center gap-1 px-2 py-0.5 ${planBadge.color} text-white text-xs font-bold rounded-full mt-1`}>
@@ -303,7 +317,7 @@ export default function Layout({ children, currentPageName }) {
                       </Link>
                     </>
                   )}
-                  
+
                   {(user.user_type === 'player' || user.user_type === 'parent') && (
                     <>
                       <Link
@@ -351,8 +365,10 @@ export default function Layout({ children, currentPageName }) {
 
                   <button
                     onClick={() => {
-                      base44.auth.logout();
+                      // Use context logout instead of SDK-only call
+                      logout();
                       setMenuOpen(false);
+                      navigate('/login');
                     }}
                     className="w-full text-left text-red-400 hover:text-red-300 transition-colors py-2"
                   >
@@ -370,10 +386,10 @@ export default function Layout({ children, currentPageName }) {
                   </Link>
                   <button
                     onClick={() => {
-                      base44.auth.redirectToLogin(window.location.pathname);
+                      navigate('/login');
                       setMenuOpen(false);
                     }}
-                    className="w-full px-4 py-2 bg-[#A88A86] hover:bg-[#9A7A76] text-black font-semibold rounded-lg transition-colors"
+                    className="w-full px-4 py-2 bg-[#D1B5A3] hover:bg-[#A88A86] text-black font-semibold rounded-lg transition-colors"
                   >
                     Login
                   </button>
@@ -383,6 +399,8 @@ export default function Layout({ children, currentPageName }) {
           </div>
         )}
       </nav>
+
+
 
       {/* Main Content */}
       <main className="flex-1">

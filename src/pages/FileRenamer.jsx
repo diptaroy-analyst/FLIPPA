@@ -2426,9 +2426,9 @@ export default function FileRenamer() {
 
   if (currentTab === 'home' || files.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col relative overflow-hidden" style={{ fontFamily: 'Satoshi, sans-serif', color: '#EAE6E3' }}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col relative overflow-hidden" style={{ fontFamily: 'Urbanist, sans-serif', color: '#EAE6E3' }}>
         <style>{`
-          @import url('https://api.fonts.coollabs.io/css2?family=Satoshi:wght@300;400;500;600;700&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
 
           .glass {
             background: rgba(255, 255, 255, 0.05);
@@ -2521,9 +2521,9 @@ export default function FileRenamer() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col overflow-hidden" style={{ fontFamily: 'Satoshi, sans-serif', color: '#EAE6E3' }}>
+    <div className="h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col overflow-hidden" style={{ fontFamily: 'Urbanist, sans-serif', color: '#EAE6E3' }}>
       <style>{`
-        @import url('https://api.fonts.coollabs.io/css2?family=Satoshi:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
 
         .glass {
           background: rgba(255, 255, 255, 0.05);
@@ -2632,7 +2632,7 @@ export default function FileRenamer() {
                       onClick={() => lutInputRef.current?.click()}
                       size="sm"
                       variant="outline"
-                      className="w-full mb-1 text-xs py-1.5"
+                      className="w-full mb-1 text-xs py-2 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-md border-2 border-transparent hover:border-blue-300 focus:outline-none transition-all duration-200"
                     >
                       <Upload className="w-3 h-3 mr-1" />
                       {lutFile ? 'Change LUT' : 'Upload LUT (.cube)'}
@@ -3196,46 +3196,49 @@ export default function FileRenamer() {
                 <div className="space-y-2">
                   <h3 className="text-white font-bold text-xs mb-2">QUICK ACTIONS</h3>
                   
-                  <Button 
-                    onClick={() => {
-                      setBrightness(100);
-                      setContrast(100);
-                      setSaturation(100);
-                      setLutFile(null);
-                      setLutData(null);
-                      setLutIntensity(100);
-                    }} 
-                    variant="outline" 
-                    className="w-full text-xs py-1.5"
-                  >
-                    Reset All Adjustments
-                  </Button>
+                <Button 
+                  onClick={() => {
+                    setBrightness(100);
+                    setContrast(100);
+                    setSaturation(100);
+                    setLutFile(null);
+                    setLutData(null);
+                    setLutIntensity(100);
+                  }} 
+                  variant="outline" 
+                  className="w-full text-xs py-2 px-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-semibold rounded-md border-2 border-transparent hover:border-red-300 focus:outline-none transition-all duration-200"
+                >
+                  Reset All Adjustments
+                </Button>
+
 
                   {isVideo && (
                     <>
-                      <Button 
-                        onClick={() => {
-                          setInPoint(null);
-                          setOutPoint(null);
-                        }} 
-                        variant="outline" 
-                        className="w-full text-xs py-1.5"
-                        disabled={inPoint === null && outPoint === null}
-                      >
-                        Clear Trim Points
-                      </Button>
+                <Button 
+                  onClick={() => {
+                    setInPoint(null);
+                    setOutPoint(null);
+                  }} 
+                  variant="outline" 
+                  className="w-full text-xs py-2 px-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-semibold rounded-md border-2 border-transparent hover:border-red-300 focus:outline-none disabled:bg-gray-400 disabled:text-gray-600 disabled:border-gray-500 transition-all duration-200"
+                  disabled={inPoint === null && outPoint === null}
+                >
+                  Clear Trim Points
+                </Button>
 
-                      <Button 
-                        onClick={() => {
-                          setMarkers(prev => prev.filter(m => m.fileId !== selectedFile?.id));
-                          setTrimSegments(prev => prev.filter(s => s.fileId !== selectedFile?.id));
-                        }} 
-                        variant="outline" 
-                        className="w-full text-xs py-1.5"
-                        disabled={!selectedFile || (markers.filter(m => m.fileId === selectedFile.id).length === 0 && trimSegments.filter(s => s.fileId === selectedFile.id).length === 0)}
-                      >
-                        Clear All Markers & Segments
-                      </Button>
+
+              <Button 
+                onClick={() => {
+                  setMarkers(prev => prev.filter(m => m.fileId !== selectedFile?.id));
+                  setTrimSegments(prev => prev.filter(s => s.fileId !== selectedFile?.id));
+                }} 
+                variant="outline" 
+                className="w-full text-xs py-2 px-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-semibold rounded-md border-2 border-transparent hover:border-red-300 focus:outline-none disabled:bg-gray-400 disabled:text-gray-600 disabled:border-gray-500 transition-all duration-200"
+                disabled={!selectedFile || (markers.filter(m => m.fileId === selectedFile.id).length === 0 && trimSegments.filter(s => s.fileId === selectedFile.id).length === 0)}
+              >
+                Clear All Markers & Segments
+              </Button>
+
                     </>
                   )}
 

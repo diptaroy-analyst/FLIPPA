@@ -187,10 +187,10 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4">
       <style>{`
-        @import url('https://api.fonts.coollabs.io/css2?family=Satoshi:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
       `}</style>
 
-      <div className="max-w-7xl mx-auto" style={{ fontFamily: 'Satoshi, sans-serif' }}>
+      <div className="max-w-7xl mx-auto" style={{ fontFamily: 'Urbanist, sans-serif' }}>
         {/* BETA Banner */}
         <div className="mb-8 bg-gradient-to-r from-green-600/20 to-emerald-600/20 border-2 border-green-500/50 rounded-2xl p-6 text-center">
           <div className="flex items-center justify-center gap-3 mb-3">

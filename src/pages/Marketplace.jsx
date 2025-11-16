@@ -163,10 +163,10 @@ export default function Marketplace() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-8 px-4">
       <style>{`
-        @import url('https://api.fonts.coollabs.io/css2?family=Satoshi:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
       `}</style>
 
-      <div className="max-w-7xl mx-auto" style={{ fontFamily: 'Satoshi, sans-serif' }}>
+      <div className="max-w-7xl mx-auto" style={{ fontFamily: 'Urbanist, sans-serif' }}>
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-white mb-3">Marketplace</h1>

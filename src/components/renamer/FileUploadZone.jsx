@@ -65,7 +65,7 @@ export default function FileUploadZone({ onFilesAdded, compact }) {
           ? "border-[#A88A86] bg-[#2B2B2B] scale-105"
           : "border-gray-600 bg-[#2B2B2B] hover:border-[#A88A86]"
       }`}
-      style={{ fontFamily: 'Satoshi, sans-serif' }}
+      style={{ fontFamily: 'Urbanist, sans-serif' }}
     >
       <input
         ref={fileInputRef}

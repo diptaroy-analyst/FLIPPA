@@ -1,16 +1,17 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { User, CreditCard, LogOut, Crown, Calendar, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { useAuth } from "@/context/AuthContext"; // added import
 
 export default function Account() {
   const [user, setUser] = useState(null);
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { logout } = useAuth(); // use context logout
 
   useEffect(() => {
     loadUserData();
@@ -31,14 +32,24 @@ export default function Account() {
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-      base44.auth.redirectToLogin();
+      // Use client-side navigation instead of SDK redirect which can break the UI
+      navigate('/login');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    base44.auth.logout(createPageUrl('FileRenamer'));
+  // replaced SDK redirecting logout with context logout + client redirect
+  const handleLogout = async () => {
+    try {
+      // call AuthContext logout (clears local storage and calls SDK logout if available)
+      await logout();
+    } catch (e) {
+      console.warn('Logout error:', e);
+    } finally {
+      // send user to login page (adjust path if your app uses a different route)
+      navigate('/login');
+    }
   };
 
   const handleCancelSubscription = async () => {
@@ -80,11 +91,12 @@ export default function Account() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4">
+      {/* Replace the problematic font import with a valid Google Fonts URL */}
       <style>{`
-        @import url('https://api.fonts.coollabs.io/css2?family=Satoshi:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
       `}</style>
 
-      <div className="max-w-4xl mx-auto" style={{ fontFamily: 'Satoshi, sans-serif' }}>
+      <div className="max-w-4xl mx-auto" style={{ fontFamily: 'Urbanist, sans-serif' }}>
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-white mb-4">Account Settings</h1>

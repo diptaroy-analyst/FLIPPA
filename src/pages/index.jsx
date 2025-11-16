@@ -27,37 +27,24 @@ import AdminRosterUpload from "./AdminRosterUpload";
 import Marketplace from "./Marketplace";
 
 import Login from './Login';
+import Signup from './Signup';
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
-    
     FileRenamer: FileRenamer,
-    
     Pricing: Pricing,
-    
     Account: Account,
-    
     Landing: Landing,
-    
     SelectUserType: SelectUserType,
-    
     Store: Store,
-    
     MyPurchases: MyPurchases,
-    
     CreatorDashboard: CreatorDashboard,
-    
     PlayerProfile: PlayerProfile,
-    
     PaymentSuccess: PaymentSuccess,
-    
     AuthCallback: AuthCallback,
-    
     AdminRosterUpload: AdminRosterUpload,
-    
     Marketplace: Marketplace,
-    
 }
 
 function _getCurrentPage(url) {
@@ -68,12 +55,10 @@ function _getCurrentPage(url) {
     if (urlLastPart.includes('?')) {
         urlLastPart = urlLastPart.split('?')[0];
     }
-
     const pageName = Object.keys(PAGES).find(page => page.toLowerCase() === urlLastPart.toLowerCase());
     return pageName || Object.keys(PAGES)[0];
 }
 
-// Create a wrapper component that uses useLocation inside the Router context
 function PagesContent() {
     const location = useLocation();
     const currentPage = _getCurrentPage(location.pathname);
@@ -82,6 +67,7 @@ function PagesContent() {
         <Layout currentPageName={currentPage}>
             <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
                 <Route path="/" element={<FileRenamer />} />
                 <Route path="/FileRenamer" element={<FileRenamer />} />
                 <Route path="/Pricing" element={<Pricing />} />

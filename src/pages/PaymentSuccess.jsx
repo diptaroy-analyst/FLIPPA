@@ -26,10 +26,10 @@ export default function PaymentSuccess() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center px-4">
       <style>{`
-        @import url('https://api.fonts.coollabs.io/css2?family=Satoshi:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
       `}</style>
 
-      <div className="max-w-2xl w-full text-center" style={{ fontFamily: 'Satoshi, sans-serif' }}>
+      <div className="max-w-2xl w-full text-center" style={{ fontFamily: 'Urbanist, sans-serif' }}>
         <div className="bg-white/5 backdrop-blur-lg rounded-3xl p-12 border border-white/10">
           <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
             <CheckCircle className="w-12 h-12 text-white" />

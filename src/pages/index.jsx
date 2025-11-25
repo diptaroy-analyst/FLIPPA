@@ -27,7 +27,17 @@ import AdminRosterUpload from "./AdminRosterUpload";
 import Marketplace from "./Marketplace";
 
 import Login from './Login';
+
 import Signup from './Signup';
+
+import ForgotPassword  from "./ForgotPassword";
+
+import PaymentFailed from "./PaymentFailed";
+
+import ResetPassword from "./ResetPassword";
+
+import SubscriptionCancelled from "./SubscriptionCancelled";
+
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
@@ -45,6 +55,12 @@ const PAGES = {
     AuthCallback: AuthCallback,
     AdminRosterUpload: AdminRosterUpload,
     Marketplace: Marketplace,
+    Login: Login,
+    Signup: Signup,
+    ForgotPassword: ForgotPassword,
+    PaymentFailed: PaymentFailed,
+    ResetPassword: ResetPassword,
+    SubscriptionCancelled: SubscriptionCancelled,
 }
 
 function _getCurrentPage(url) {
@@ -68,6 +84,10 @@ function PagesContent() {
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/payment-failed" element={<PaymentFailed />} />
+                <Route path="/subscription-cancelled" element={<SubscriptionCancelled />} />
                 <Route path="/" element={<FileRenamer />} />
                 <Route path="/FileRenamer" element={<FileRenamer />} />
                 <Route path="/Pricing" element={<Pricing />} />

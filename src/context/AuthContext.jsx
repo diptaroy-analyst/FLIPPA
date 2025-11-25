@@ -1,7 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { base44 } from "@/api/base44Client"; // Your base44 API client
 
 const AuthContext = createContext();
+
+// Utility function to get JWT from localStorage
+const getToken = () => localStorage.getItem("token");
+
+// Utility function to set JWT to localStorage
+const setToken = (token) => localStorage.setItem("token", token);
+
+// Utility function to remove JWT from localStorage
+const removeToken = () => localStorage.removeItem("token");
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -11,12 +20,13 @@ export function AuthProvider({ children }) {
     let mounted = true;
     (async () => {
       try {
+        // Check if the user is authenticated with base44 API
         if (base44?.auth?.me) {
           const me = await base44.auth.me();
           if (mounted) setUser(me || null);
         } else {
-          const stored = localStorage.getItem("user");
-          if (stored && mounted) setUser(JSON.parse(stored));
+          const storedUser = localStorage.getItem("user");
+          if (storedUser && mounted) setUser(JSON.parse(storedUser));
         }
       } catch (e) {
         if (mounted) setUser(null);
@@ -27,23 +37,29 @@ export function AuthProvider({ children }) {
     return () => { mounted = false; };
   }, []);
 
-  // IMPORTANT: Do NOT rely on SDK logout redirect here.
-  // Clear local state/storage and let the app navigate client-side.
+  const login = (userData, token) => {
+    // Store token and user in localStorage
+    setToken(token);
+    localStorage.setItem("user", JSON.stringify(userData));
+    setUser(userData);
+  };
+
   const logout = async () => {
     try {
-      // If you want to call SDK logout without redirect, only do so if it supports a non-redirect option.
-      // Example (uncomment if supported): await base44.auth.logout({ redirect: false });
+      // Optional: call the SDK logout if supported
+      // await base44.auth.logout({ redirect: false });
     } catch (e) {
-      // ignore SDK errors
+      // Ignore SDK errors
     } finally {
-      localStorage.removeItem("token");
+      // Clear localStorage and reset user state
+      removeToken();
       localStorage.removeItem("user");
       setUser(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, logout }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

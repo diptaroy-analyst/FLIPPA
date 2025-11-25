@@ -1,0 +1,4 @@
+python -m venv venv
+.\venv\Scripts\Activate
+npm install
+npm run start

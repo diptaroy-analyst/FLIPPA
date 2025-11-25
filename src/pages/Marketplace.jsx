@@ -1,197 +1,197 @@
-
-import React, { useState, useEffect } from "react";
+// src/pages/Marketplace.jsx
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
+import {
+  Search, Filter, Play, Star, ShoppingCart, TrendingUp,
+  Loader2, X, CheckCircle, AlertCircle, Video
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem,
+  SelectTrigger, SelectValue
 } from "@/components/ui/select";
-import { Search, Filter, Play, Star, ShoppingCart, TrendingUp } from "lucide-react";
+import { toast } from "sonner"; // Optional: add sonner for beautiful toasts
+
+const CLIP_TYPES = [
+  { value: "all", label: "All Types" },
+  { value: "goal", label: "Goals", color: "bg-green-500" },
+  { value: "save", label: "Saves", color: "bg-blue-500" },
+  { value: "faceoff", label: "Faceoffs", color: "bg-amber-500" },
+  { value: "assist", label: "Assists", color: "bg-purple-500" },
+  { value: "ground_ball", label: "Ground Balls", color: "bg-orange-500" },
+  { value: "other", label: "Other", color: "bg-gray-500" },
+];
+
+const GRAD_YEARS = ["all", "2025", "2026", "2027", "2028", "2029", "2030", "2031"];
 
 export default function Marketplace() {
-  const [user, setUser] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterState, setFilterState] = useState('all');
-  const [filterGradYear, setFilterGradYear] = useState('all');
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterGradYear, setFilterGradYear] = useState("all");
   const [selectedClip, setSelectedClip] = useState(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
-  const [signedVideoUrl, setSignedVideoUrl] = useState(null);
+  const [signedVideoUrl, setSignedVideoUrl] = useState("");
   const [loadingSignedUrl, setLoadingSignedUrl] = useState(false);
 
-  useEffect(() => {
-    loadUser();
-  }, []);
+  // Fetch all active clips
+  const { data: clips = [], isLoading } = useQuery({
+    queryKey: ["marketplace-clips"],
+    queryFn: async () => {
+      const allClips = await base44.entities.Clip.filter({ status: "active" });
+      return allClips
+        .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
+        .map(clip => ({
+          ...clip,
+          tags: clip.tags || [],
+          total_sales: clip.total_sales || 0,
+          average_rating: clip.average_rating || 0,
+        }));
+    },
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
 
-  useEffect(() => {
-    // When a clip is selected, get signed URL for the video
-    if (selectedClip?.video_url) {
-      getSignedUrl(selectedClip.video_url);
-    }
-  }, [selectedClip]);
+  // Filter clips with useMemo (huge performance win)
+  const filteredClips = useMemo(() => {
+    return clips.filter(clip => {
+      const search = searchTerm.toLowerCase();
+      const matchesSearch = !search || [
+        clip.title,
+        clip.description,
+        clip.team_name,
+        clip.player_number,
+        ...(clip.tags || [])
+      ].some(field => field?.toString().toLowerCase().includes(search));
 
-  const getSignedUrl = async (videoUrl) => {
-    // Check if URL is already signed (e.g., if it's already a public URL with signed parameters)
-    if (videoUrl.includes('X-Goog-Algorithm') || videoUrl.includes('Signature=')) {
+      const matchesType = filterType === "all" || clip.clip_type === filterType;
+      const matchesGradYear = filterGradYear === "all" ||
+        clip.tags?.some(tag => tag.includes(`Class of ${filterGradYear}`) || tag === filterGradYear);
+
+      return matchesSearch && matchesType && matchesGradYear;
+    });
+  }, [clips, searchTerm, filterType, filterGradYear]);
+
+  // Get signed URL for preview
+  const getSignedUrl = useCallback(async (videoUrl) => {
+    if (!videoUrl) return;
+
+    if (videoUrl.includes("X-Goog-Algorithm") || videoUrl.includes("Signature=")) {
       setSignedVideoUrl(videoUrl);
       return;
     }
 
     setLoadingSignedUrl(true);
     try {
-      const response = await base44.functions.invoke('getSignedVideoUrl', { videoUrl });
-      if (response.data?.signed_url) {
-        setSignedVideoUrl(response.data.signed_url);
-      } else {
-        console.error('No signed URL returned from function invocation');
-        setSignedVideoUrl(videoUrl); // Fallback to original URL if signed URL is not provided
-      }
-    } catch (error) {
-      console.error('Error getting signed URL:', error);
-      setSignedVideoUrl(videoUrl); // Fallback to original URL on error
+      const { data } = await base44.functions.invoke("getSignedVideoUrl", { videoUrl });
+      setSignedVideoUrl(data?.signed_url || videoUrl);
+    } catch (err) {
+      console.error("Failed to get signed URL:", err);
+      setSignedVideoUrl(videoUrl);
     } finally {
       setLoadingSignedUrl(false);
     }
+  }, []);
+
+  // Open modal + load video
+  const openVideoModal = (clip) => {
+    setSelectedClip(clip);
+    setShowVideoModal(true);
+    setSignedVideoUrl("");
+    getSignedUrl(clip.video_url);
   };
 
-  const loadUser = async () => {
-    try {
-      const userData = await base44.auth.me();
-      setUser(userData);
-    } catch (error) {
-      console.error('Error loading user:', error);
-    }
-  };
+  // Purchase mutation
+  const purchaseMutation = useMutation({
+    mutationFn: async (clip) => {
+      if (!user) throw new Error("You must be logged in");
 
-  const { data: clips = [], isLoading, refetch } = useQuery({
-    queryKey: ['marketplace-clips'],
-    queryFn: async () => {
-      console.log('Fetching marketplace clips...');
-      const allClips = await base44.entities.Clip.filter({ status: 'active' });
-      console.log('Fetched clips:', allClips.length);
-      return allClips.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-    },
-    initialData: [],
-    staleTime: 0, // Always refetch on mount
-    refetchOnMount: 'always', // Force refetch when component mounts
-  });
-
-  const filteredClips = clips.filter(clip => {
-    const matchesSearch = !searchTerm || 
-      clip.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      clip.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      clip.team_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      clip.player_number?.toLowerCase().includes(searchTerm.toLowerCase()) || // Added player_number to search
-      clip.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesType = filterType === 'all' || clip.clip_type === filterType;
-    const matchesState = filterState === 'all' || clip.state === filterState;
-    const matchesGradYear = filterGradYear === 'all' || 
-      clip.tags?.some(tag => tag.includes(filterGradYear));
-
-    return matchesSearch && matchesType && matchesState && matchesGradYear;
-  });
-
-  const handleBuyClip = async (clip) => {
-    if (!user) {
-      alert('Please log in to purchase clips');
-      base44.auth.redirectToLogin(window.location.pathname);
-      return;
-    }
-
-    // Check if already purchased
-    try {
-      const existingPurchase = await base44.entities.Purchase.filter({
+      const existing = await base44.entities.Purchase.filter({
         buyer_email: user.email,
-        clip_id: clip.id
+        clip_id: clip.id,
       });
 
-      if (existingPurchase && existingPurchase.length > 0) {
-        alert('You have already purchased this clip! Check "My Purchases" to download it.');
-        return;
+      if (existing?.length > 0) {
+        throw new Error("You already own this clip!");
       }
-
-      // In a real app, this would go through Stripe payment
-      // For now, we'll create the purchase directly
-      const confirmed = confirm(`Purchase "${clip.title}" for $${clip.price.toFixed(2)}?`);
-      if (!confirmed) return;
 
       await base44.entities.Purchase.create({
         buyer_email: user.email,
         clip_id: clip.id,
         creator_email: clip.creator_email,
         price_paid: clip.price,
-        status: 'completed'
+        status: "completed",
       });
 
-      // Update clip stats
       await base44.entities.Clip.update(clip.id, {
         total_sales: (clip.total_sales || 0) + 1,
-        total_revenue: (clip.total_revenue || 0) + clip.price
+        total_revenue: (clip.total_revenue || 0) + clip.price,
       });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["marketplace-clips"]);
+      toast.success("Purchase successful! Check 'My Purchases'");
+      setShowVideoModal(false);
+    },
+    onError: (error) => {
+      if (error.message.includes("logged in")) {
+        base44.auth.redirectToLogin(window.location.pathname);
+      } else if (error.message.includes("already own")) {
+        toast.info(error.message);
+      } else {
+        toast.error("Purchase failed. Try again.");
+      }
+    },
+  });
 
-      alert('🎉 Purchase successful! Check "My Purchases" to download your clip.');
-    } catch (error) {
-      console.error('Purchase error:', error);
-      alert('Failed to complete purchase. Please try again.');
+  const handleBuy = (clip) => {
+    if (!user) {
+      base44.auth.redirectToLogin(window.location.pathname);
+      return;
     }
+    purchaseMutation.mutate(clip);
   };
 
-  const getClipTypeColor = (type) => {
-    const colors = {
-      goal: 'bg-green-500',
-      save: 'bg-blue-500',
-      faceoff: 'bg-amber-500',
-      assist: 'bg-purple-500',
-      ground_ball: 'bg-orange-500',
-      other: 'bg-gray-500'
-    };
-    return colors[type] || 'bg-gray-500';
-  };
-
-  const getClipTypeLabel = (type) => {
-    return type.replace('_', ' ').toUpperCase();
+  const clearFilters = () => {
+    setSearchTerm("");
+    setFilterType("all");
+    setFilterGradYear("all");
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-8 px-4">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800&display=swap');
       `}</style>
 
-      <div className="max-w-7xl mx-auto" style={{ fontFamily: 'Urbanist, sans-serif' }}>
+      <div className="max-w-7xl mx-auto" style={{ fontFamily: "'Urbanist', sans-serif" }}>
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white mb-3">Marketplace</h1>
-          <p className="text-gray-300 text-lg">Browse and purchase game clips from creators</p>
-          <button
-            onClick={() => refetch()}
-            className="mt-3 text-sm text-[#A88A86] hover:text-white transition-colors"
-          >
-            🔄 Refresh Clips
-          </button>
+        <div className="text-center mb-10">
+          <h1 className="text-5xl md:text-6xl font-bold text-white mb-4">
+            Lacrosse Clip Marketplace
+          </h1>
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            Find your best plays. Buy professional highlights instantly.
+          </p>
         </div>
 
-        {/* Search and Filters */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 border border-white/10 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by title, team, player #, tags..."
-                  className="pl-10 bg-white/10 border-white/20 text-white"
-                />
-              </div>
+        {/* Search & Filters */}
+        <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-6 border border-white/10 mb-8 shadow-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by player, team, #22, tags..."
+                className="pl-12 bg-white/10 border-white/20 text-white placeholder-gray-400 focus:border-[#A88A86]"
+              />
             </div>
 
             <Select value={filterType} onValueChange={setFilterType}>
@@ -199,13 +199,9 @@ export default function Marketplace() {
                 <SelectValue placeholder="Clip Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="goal">Goals</SelectItem>
-                <SelectItem value="save">Saves</SelectItem>
-                <SelectItem value="faceoff">Faceoffs</SelectItem>
-                <SelectItem value="assist">Assists</SelectItem>
-                <SelectItem value="ground_ball">Ground Balls</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                {CLIP_TYPES.map(t => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -214,33 +210,22 @@ export default function Marketplace() {
                 <SelectValue placeholder="Grad Year" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Grad Years</SelectItem>
-                <SelectItem value="2025">Class of 2025</SelectItem>
-                <SelectItem value="2026">Class of 2026</SelectItem>
-                <SelectItem value="2027">Class of 2027</SelectItem>
-                <SelectItem value="2028">Class of 2028</SelectItem>
-                <SelectItem value="2029">Class of 2029</SelectItem>
-                <SelectItem value="2030">Class of 2030</SelectItem>
+                {GRAD_YEARS.map(year => (
+                  <SelectItem key={year} value={year}>
+                    {year === "all" ? "All Years" : `Class of ${year}`}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-gray-300 text-sm">
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-gray-400 text-sm flex items-center gap-2">
               <Filter className="w-4 h-4" />
-              <span>{filteredClips.length} clip{filteredClips.length !== 1 ? 's' : ''} found</span>
-            </div>
-            {(searchTerm || filterType !== 'all' || filterGradYear !== 'all') && (
-              <Button
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterType('all');
-                  setFilterGradYear('all');
-                }}
-                variant="ghost"
-                className="text-[#A88A86] hover:text-white"
-                size="sm"
-              >
+              {filteredClips.length} clip{filteredClips.length !== 1 ? "s" : ""} available
+            </p>
+            {(searchTerm || filterType !== "all" || filterGradYear !== "all") && (
+              <Button variant="ghost" onClick={clearFilters} className="text-[#A88A86] hover:text-white">
                 Clear Filters
               </Button>
             )}
@@ -249,92 +234,89 @@ export default function Marketplace() {
 
         {/* Clips Grid */}
         {isLoading ? (
-          <div className="text-center py-20">
-            <div className="animate-spin w-12 h-12 border-4 border-[#A88A86] border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-gray-400">Loading clips...</p>
+          <div className="text-center py-24">
+            <Loader2 className="w-16 h-16 animate-spin text-[#A88A86] mx-auto mb-4" />
+            <p className="text-gray-400">Loading the best plays...</p>
           </div>
         ) : filteredClips.length === 0 ? (
-          <div className="text-center py-20">
-            <ShoppingCart className="w-20 h-20 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-white mb-2">No clips found</h3>
-            <p className="text-gray-400">Try adjusting your filters or check back later for new content</p>
+          <div className="text-center py-24">
+            <Video className="w-24 h-24 text-gray-600 mx-auto mb-6 opacity-50" />
+            <h3 className="text-3xl font-bold text-white mb-3">No clips found</h3>
+            <p className="text-gray-400 text-lg">Try adjusting your search or filters</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredClips.map((clip) => (
-              <Card key={clip.id} className="bg-white/5 backdrop-blur-lg border-white/10 overflow-hidden hover:border-[#A88A86] transition-all hover:scale-105">
-                <div 
-                  className="relative aspect-video bg-black/40 cursor-pointer group"
-                  onClick={() => {
-                    setSelectedClip(clip);
-                    setShowVideoModal(true);
-                    setSignedVideoUrl(null); // Reset signed URL when a new clip is selected
-                  }}
-                >
+              <Card
+                key={clip.id}
+                className="bg-white/5 backdrop-blur-lg border border-white/10 overflow-hidden hover:border-[#A88A86]/50 transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
+                onClick={() => openVideoModal(clip)}
+              >
+                <div className="relative aspect-video bg-black/40">
                   {clip.thumbnail_url ? (
-                    <img src={clip.thumbnail_url} alt={clip.title} className="w-full h-full object-cover" />
+                    <img
+                      src={clip.thumbnail_url}
+                      alt={clip.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      loading="lazy"
+                    />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="flex items-center justify-center h-full">
                       <Play className="w-16 h-16 text-gray-500" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Play className="w-16 h-16 text-white" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute bottom-3 left-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-white font-bold text-lg truncate">{clip.title}</p>
+                    <p className="text-[#A88A86] text-sm">{clip.team_name} {clip.player_number && `#${clip.player_number}`}</p>
                   </div>
-                  <Badge className={`absolute top-2 left-2 ${getClipTypeColor(clip.clip_type)} text-white font-bold`}>
-                    {getClipTypeLabel(clip.clip_type)}
+                  <Badge className={`absolute top-3 left-3 ${CLIP_TYPES.find(t => t.value === clip.clip_type)?.color || 'bg-gray-500'} text-white font-bold`}>
+                    {clip.clip_type?.replace("_", " ").toUpperCase() || "CLIP"}
                   </Badge>
                   {clip.average_rating > 0 && (
-                    <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded-full flex items-center gap-1">
+                    <div className="absolute top-3 right-3 bg-black/70 px-2 py-1 rounded-full flex items-center gap-1">
                       <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                      <span className="text-white text-sm font-semibold">{clip.average_rating.toFixed(1)}</span>
+                      <span className="text-white text-xs font-bold">{clip.average_rating.toFixed(1)}</span>
                     </div>
                   )}
                 </div>
 
                 <CardContent className="p-4">
-                  <h3 className="text-white font-bold text-lg mb-2 truncate">{clip.title}</h3>
-                  
-                  {clip.team_name && (
-                    <p className="text-[#A88A86] text-sm mb-2 font-semibold">{clip.team_name} {clip.player_number ? `#${clip.player_number}` : ''}</p>
-                  )}
-
-                  <p className="text-gray-400 text-sm mb-3 line-clamp-2">{clip.description}</p>
-
-                  {clip.tags && clip.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {clip.tags.slice(0, 3).map((tag, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs border-white/20 text-gray-300">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {clip.tags.length > 3 && (
-                        <Badge variant="outline" className="text-xs border-white/20 text-gray-300">
-                          +{clip.tags.length - 3}
-                        </Badge>
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <h3 className="text-white font-bold text-lg line-clamp-1">{clip.title}</h3>
+                      <p className="text-[#A88A86] text-sm font-medium">
+                        {clip.team_name} {clip.player_number && `#${clip.player_number}`}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-[#A88A86]">${clip.price.toFixed(2)}</p>
+                      {clip.total_sales > 0 && (
+                        <p className="text-xs text-gray-400 flex items-center gap-1 justify-end mt-1">
+                          <TrendingUp className="w-3 h-3" />
+                          {clip.total_sales} sold
+                        </p>
                       )}
                     </div>
-                  )}
-
-                  <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                    <div className="text-2xl font-bold text-[#A88A86]">
-                      ${clip.price.toFixed(2)}
-                    </div>
-                    <Button
-                      onClick={() => handleBuyClip(clip)}
-                      className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold"
-                    >
-                      <ShoppingCart className="w-4 h-4 mr-2" />
-                      Buy Now
-                    </Button>
                   </div>
 
-                  {clip.total_sales > 0 && (
-                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                      <TrendingUp className="w-3 h-3" />
-                      {clip.total_sales} sale{clip.total_sales !== 1 ? 's' : ''}
-                    </div>
-                  )}
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBuy(clip);
+                    }}
+                    disabled={purchaseMutation.isPending}
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold"
+                  >
+                    {purchaseMutation.isPending ? (
+                      <>Processing...</>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        Buy Now
+                      </>
+                    )}
+                  </Button>
                 </CardContent>
               </Card>
             ))}
@@ -344,99 +326,80 @@ export default function Marketplace() {
 
       {/* Video Preview Modal */}
       {showVideoModal && selectedClip && (
-        <div 
-          className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => {
-            setShowVideoModal(false);
-            setSignedVideoUrl(null); // Clear signed URL when modal closes
-          }}
+        <div
+          className="fixed inset-0 bg-black/95 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowVideoModal(false)}
         >
-          <div 
-            className="bg-white/5 backdrop-blur-lg rounded-2xl max-w-4xl w-full border border-white/10"
+          <div
+            className="bg-gradient-to-br from-slate-900/90 to-purple-900/90 backdrop-blur-2xl rounded-3xl max-w-5xl w-full border border-white/20 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
+              <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-white mb-1">{selectedClip.title}</h2>
-                  {selectedClip.team_name && (
-                    <p className="text-[#A88A86] font-semibold">{selectedClip.team_name} {selectedClip.player_number ? `#${selectedClip.player_number}` : ''}</p>
-                  )}
+                  <h2 className="text-3xl font-bold text-white mb-2">{selectedClip.title}</h2>
+                  <p className="text-[#A88A86] text-xl font-semibold">
+                    {selectedClip.team_name} {selectedClip.player_number && `#${selectedClip.player_number}`}
+                  </p>
                 </div>
-                <button 
-                  onClick={() => {
-                    setShowVideoModal(false);
-                    setSignedVideoUrl(null); // Clear signed URL when modal closes
-                  }}
-                  className="text-gray-400 hover:text-white"
+                <button
+                  onClick={() => setShowVideoModal(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
                 >
-                  <span className="text-3xl">×</span>
+                  <X className="w-8 h-8" />
                 </button>
               </div>
 
-              <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
+              <div className="aspect-video bg-black rounded-2xl overflow-hidden mb-6 shadow-2xl">
                 {loadingSignedUrl ? (
                   <div className="w-full h-full flex items-center justify-center">
                     <div className="text-center">
-                      <div className="animate-spin w-12 h-12 border-4 border-[#A88A86] border-t-transparent rounded-full mx-auto mb-3"></div>
-                      <p className="text-white">Loading video...</p>
+                      <Loader2 className="w-16 h-16 animate-spin text-[#A88A86] mx-auto mb-4" />
+                      <p className="text-white text-lg">Loading your highlight...</p>
                     </div>
                   </div>
                 ) : signedVideoUrl ? (
                   <video
-                    key={signedVideoUrl} // Key to force re-render when src changes
+                    key={signedVideoUrl}
                     controls
+                    autoPlay
                     className="w-full h-full"
                     poster={selectedClip.thumbnail_url}
-                    preload="metadata"
-                    playsInline
-                    onError={(e) => {
-                      console.error('❌ Video playback error:', e.target?.error);
-                      console.error('Video URL:', signedVideoUrl);
-                    }}
-                    onLoadStart={() => console.log('🎬 Video loading started')}
-                    onLoadedMetadata={() => console.log('✅ Video metadata loaded successfully')}
-                    onCanPlay={() => console.log('✅ Video ready to play')}
-                    onPlaying={() => console.log('▶️ Video is now playing')}
                   >
                     <source src={signedVideoUrl} type="video/mp4" />
-                    Your browser does not support the video tag.
+                    <p className="text-white p-8 text-center">Your browser doesn't support video playback.</p>
                   </video>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    <div className="text-center">
-                      <Play className="w-16 h-16 mx-auto mb-3 opacity-30" />
-                      <p>Video not available</p>
-                    </div>
+                    <Video className="w-20 h-20 mb-4" />
+                    <p>Video temporarily unavailable</p>
                   </div>
                 )}
               </div>
 
-              <p className="text-gray-300 mb-4">{selectedClip.description}</p>
-
-              {selectedClip.tags && selectedClip.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {selectedClip.tags.map((tag, idx) => (
-                    <Badge key={idx} variant="outline" className="border-white/20 text-gray-300">
-                      {tag}
-                    </Badge>
-                  ))}
+              <div className="flex items-center justify-between">
+                <div>
+                  {selectedClip.description && (
+                    <p className="text-gray-300 text-lg mb-4 max-w-2xl">{selectedClip.description}</p>
+                  )}
+                  {selectedClip.tags?.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedClip.tags.map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="bg-white/10 text-gray-300">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
 
-              <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                <div className="text-3xl font-bold text-[#A88A86]">
-                  ${selectedClip.price.toFixed(2)}
-                </div>
                 <Button
-                  onClick={() => {
-                    handleBuyClip(selectedClip);
-                    setShowVideoModal(false);
-                  }}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg px-8 py-6"
+                  size="lg"
+                  onClick={() => handleBuy(selectedClip)}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-xl px-12 py-8 rounded-2xl shadow-2xl"
                 >
-                  <ShoppingCart className="w-5 h-5 mr-2" />
-                  Purchase Clip
+                  <ShoppingCart className="w-6 h-6 mr-3" />
+                  Buy for ${selectedClip.price.toFixed(2)}
                 </Button>
               </div>
             </div>

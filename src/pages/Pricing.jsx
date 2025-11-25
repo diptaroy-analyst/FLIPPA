@@ -1,322 +1,308 @@
+// src/pages/Pricing.jsx
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { Check, Sparkles, Zap, Crown, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
 import { createPageUrl } from "@/utils";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
+import {
+  Sparkles, Zap, Crown, Check, Star, Users, Trophy,
+  Rocket, Gift, ArrowRight, PartyPopper
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export default function Pricing() {
-  const [user, setUser] = useState(null);
-  const [currentSubscription, setCurrentSubscription] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [billingPeriod, setBillingPeriod] = useState('monthly');
-  const [processingPlan, setProcessingPlan] = useState(null);
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [currentPlan, setCurrentPlan] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activatingPlan, setActivatingPlan] = useState(null);
 
   useEffect(() => {
-    loadUserAndSubscription();
+    const loadUserAndPlan = async () => {
+      try {
+        const userData = await base44.auth.me();
+        setUser(userData);
+
+        const subs = await base44.entities.Subscription.filter({
+          user_email: userData.email,
+          status: "active"
+        });
+
+        if (subs.length > 0) {
+          setCurrentPlan(subs[0].plan_type);
+        }
+      } catch (err) {
+        console.log("Not logged in or no subscription");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadUserAndPlan();
   }, []);
 
-  const loadUserAndSubscription = async () => {
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 120,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ["#A88A86", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"]
+    });
+  };
+
+  const handleActivatePlan = async (planType) => {
     try {
       const userData = await base44.auth.me();
-      setUser(userData);
 
-      const subs = await base44.entities.Subscription.filter({ 
+      setActivatingPlan(planType);
+      triggerConfetti();
+
+      const endDate = new Date();
+      endDate.setFullYear(endDate.getFullYear() + 10);
+
+      await base44.entities.Subscription.create({
         user_email: userData.email,
-        status: 'active'
+        plan_type: planType === "free" ? "free" : `${planType}_beta`,
+        status: "active",
+        start_date: new Date().toISOString(),
+        end_date: endDate.toISOString(),
+        auto_renew: false,
+        features: {
+          max_files: planType === "pro" ? -1 : planType === "creator" ? 100 : 10,
+          ai_analysis: planType !== "free",
+          priority_support: planType === "pro"
+        }
       });
-      
-      if (subs.length > 0) {
-        setCurrentSubscription(subs[0]);
+
+      toast.success("Plan activated!", {
+        description: "Welcome to Flippa — your beta access is live",
+        icon: <PartyPopper className="w-5 h-5" />
+      });
+
+      setCurrentPlan(planType === "free" ? "free" : `${planType}_beta`);
+
+      setTimeout(() => {
+        if (userData.user_type === "creator") {
+          navigate(createPageUrl("FileRenamer"));
+        } else {
+          navigate(createPageUrl("Marketplace"));
+        }
+      }, 1500);
+
+    } catch (err) {
+      if (err.message?.includes("authenticated")) {
+        base44.auth.redirectToLogin(window.location.pathname);
+      } else {
+        toast.error("Activation failed — please try again");
       }
-    } catch (error) {
-      console.log('User not logged in');
-    } finally {
-      setLoading(false);
+      setActivatingPlan(null);
     }
   };
 
   const plans = [
     {
-      name: 'Free',
-      price_monthly: 0,
-      price_yearly: 0,
-      type: 'free',
-      icon: Sparkles,
-      color: 'from-gray-500 to-slate-500',
-      description: 'Perfect for players browsing clips',
-      transactionFee: null,
-      features: {
-        max_files: 10,
-        ai_analysis: false,
-        lut_support: false,
-        export_edl: true,
-        priority_support: false
-      },
-      featureList: [
-        '✓ Browse all game clips',
-        '✓ Purchase highlights',
-        '✓ Download your clips',
-        '✓ Leave reviews',
-        '✓ Free forever for players',
-        '✗ No creator features'
+      name: "Player",
+      type: "free",
+      icon: Users,
+      color: "from-blue-500 to-cyan-500",
+      description: "For athletes & parents",
+      price: "Always Free",
+      features: [
+        "Browse all game clips",
+        "Purchase highlights",
+        "Download your clips forever",
+        "Get tagged in footage",
+        "Leave reviews",
+        "No credit card needed"
       ]
     },
     {
-      name: 'Creator',
-      price_monthly: 0,
-      price_yearly: 0,
-      type: 'creator',
+      name: "Creator",
+      type: "creator",
       icon: Zap,
-      color: 'from-purple-500 to-pink-500',
-      description: 'For content creators who need more power',
+      color: "from-purple-500 to-pink-600",
+      description: "Perfect for content creators",
+      price: "Free in Beta",
+      badge: "MOST POPULAR",
       popular: true,
-      betaFree: true,
-      transactionFee: '15%',
-      features: {
-        max_files: 100,
-        ai_analysis: true,
-        lut_support: true,
-        export_edl: true,
-        priority_support: false
-      },
-      featureList: [
-        'Up to 100 files per session',
-        'AI-powered analysis',
-        'LUT color grading',
-        'EDL export',
-        '15% transaction fee on sales',
-        'Advanced trim & mark',
-        'Email support'
+      features: [
+        "Up to 100 clips per session",
+        "AI-powered highlight detection",
+        "LUT color grading",
+        "EDL export",
+        "Sell your clips",
+        "15% fee only when you earn",
+        "Early access to new features"
       ]
     },
     {
-      name: 'Pro',
-      price_monthly: 0,
-      price_yearly: 0,
-      type: 'pro',
+      name: "Pro",
+      type: "pro",
       icon: Crown,
-      color: 'from-amber-500 to-orange-500',
-      description: 'For professional teams and studios',
-      betaFree: true,
-      transactionFee: '5%',
-      features: {
-        max_files: -1,
-        ai_analysis: true,
-        lut_support: true,
-        export_edl: true,
-        priority_support: true
-      },
-      featureList: [
-        'Unlimited files',
-        'AI-powered analysis',
-        'Advanced LUT color grading',
-        'EDL export',
-        'Only 5% transaction fee on sales',
-        'Batch processing',
-        'Priority support',
-        'Team collaboration (coming soon)'
+      color: "from-amber-500 to-orange-600",
+      description: "For teams & studios",
+      price: "Free in Beta",
+      badge: "BEST VALUE",
+      features: [
+        "Unlimited clips & storage",
+        "Advanced AI analysis",
+        "Batch processing",
+        "Priority support",
+        "Only 5% fee on sales",
+        "Team collaboration",
+        "Custom branding (soon)",
+        "Lifetime early-bird pricing"
       ]
     }
   ];
 
-  const handleSubscribe = async (plan) => {
-    if (!user) {
-      base44.auth.redirectToLogin(window.location.pathname);
-      return;
-    }
-
-    setProcessingPlan(plan.type);
-
-    try {
-      // Check if user already has a subscription
-      const existingSubs = await base44.entities.Subscription.filter({
-        user_email: user.email,
-        status: 'active'
-      });
-
-      if (existingSubs.length > 0) {
-        alert('You already have an active subscription!');
-        setProcessingPlan(null);
-        return;
-      }
-
-      // BETA MODE: Create free subscription directly
-      const endDate = new Date();
-      endDate.setFullYear(endDate.getFullYear() + 10); // Extended period for beta
-
-      await base44.entities.Subscription.create({
-        user_email: user.email,
-        plan_type: plan.type === 'free' ? 'free' : `${plan.type}_monthly`,
-        status: 'active',
-        start_date: new Date().toISOString(),
-        end_date: endDate.toISOString(),
-        auto_renew: false,
-        features: plan.features
-      });
-
-      alert('🎉 Beta access activated! Free during beta period!');
-      
-      // Refresh subscription data
-      await loadUserAndSubscription();
-      
-      // Redirect based on user type
-      if (user.user_type === 'creator') {
-        navigate(createPageUrl('FileRenamer'));
-      } else {
-        navigate(createPageUrl('Marketplace'));
-      }
-
-    } catch (error) {
-      console.error('Subscription error:', error);
-      alert(`Failed to activate plan: ${error.message || 'Please try again.'}`);
-    } finally {
-      setProcessingPlan(null);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+        <div className="text-white text-2xl">Loading plans...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet"');
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4 overflow-hidden relative">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-20 left-10 w-96 h-96 bg-purple-600 rounded-full blur-3xl opacity-20 animate-pulse" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-emerald-600 rounded-full blur-3xl opacity-20 animate-pulse delay-1000" />
+      </div>
+
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;900&display=swap');
       `}</style>
 
-      <div className="max-w-7xl mx-auto" style={{ fontFamily: 'Urbanist, sans-serif' }}>
-        {/* BETA Banner */}
-        <div className="mb-8 bg-gradient-to-r from-green-600/20 to-emerald-600/20 border-2 border-green-500/50 rounded-2xl p-6 text-center">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <Sparkles className="w-8 h-8 text-green-400" />
-            <h2 className="text-3xl font-bold text-white">🎉 BETA LAUNCH - ALL PLANS FREE!</h2>
-            <Sparkles className="w-8 h-8 text-green-400" />
-          </div>
-          <p className="text-xl text-green-300 mb-2">
-            Be part of our beta testing phase and get <strong>free access</strong> to all creator features!
-          </p>
-          <p className="text-gray-300">
-            Help us build the best platform for lacrosse content creators. Your feedback shapes the future!
-          </p>
-        </div>
+      <div className="max-w-7xl mx-auto relative z-10" style={{ fontFamily: "'Urbanist', sans-serif" }}>
+        {/* Hero */}
+        <div className="text-center mb-16">
+          <Badge className="mb-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-2 text-lg">
+            <Rocket className="w-5 h-5 mr-2" />
+            BETA LAUNCH — ALL CREATOR TOOLS FREE
+          </Badge>
 
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            Choose Your Plan
+          <h1 className="text-6xl md:text-7xl font-bold text-white mb-6">
+            Start Creating Today
           </h1>
-          <p className="text-xl text-gray-300 mb-2">
-            Free for players. <span className="text-green-400 font-bold">Beta testers get everything free!</span>
+          <p className="text-2xl text-gray-300 mb-4 max-w-3xl mx-auto">
+            Players use Flippa <span className="text-green-400 font-bold">100% free forever</span>.<br />
+            Creators get <span className="text-[#A88A86] font-bold">full Pro access free</span> during beta.
           </p>
-          <p className="text-sm text-gray-400 mb-8">
-            Players can browse and purchase clips for free. Beta creators get full access at no cost.
-          </p>
+          <div className="flex items-center justify-center gap-2 text-yellow-400 mt-6">
+            {[...Array(5)].map((_, i) => (
+              <Star key={i} className="w-6 h-6 fill-current" />
+            ))}
+            <span className="text-gray-400 ml-3">Join 2,000+ beta creators</span>
+          </div>
         </div>
 
-        {/* Plans Grid */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
+        {/* Pricing Grid */}
+        <div className="grid md:grid-cols-3 gap-8 mb-20">
           {plans.map((plan) => {
             const Icon = plan.icon;
-            const isCurrentPlan = currentSubscription?.plan_type.startsWith(plan.type);
-            const isProcessing = processingPlan === plan.type;
-            const isFree = plan.type === 'free';
+            const isActive = currentPlan?.includes(plan.type);
+            const isProcessing = activatingPlan === plan.type;
 
             return (
               <div
                 key={plan.type}
-                className={`relative bg-white/5 backdrop-blur-lg rounded-2xl p-8 border-2 transition-all hover:scale-105 ${
-                  plan.popular 
-                    ? 'border-[#A88A86] shadow-2xl shadow-[#A88A86]/20' 
-                    : 'border-white/10'
-                }`}
+                className={`relative group transition-all duration-500 hover:-translate-y-4 ${plan.popular ? "md:scale-110" : ""}`}
               >
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-1 rounded-full text-sm font-bold">
-                    MOST POPULAR
-                  </div>
-                )}
-
-                {isCurrentPlan && (
-                  <div className="absolute -top-4 right-4 bg-green-600 text-white px-4 py-1 rounded-full text-sm font-bold">
-                    CURRENT PLAN
-                  </div>
-                )}
-
-                {plan.betaFree && !isCurrentPlan && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-1 rounded-full text-sm font-bold animate-pulse">
-                    FREE BETA ACCESS
-                  </div>
-                )}
-
-                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${plan.color} flex items-center justify-center mb-4`}>
-                  <Icon className="w-8 h-8 text-white" />
-                </div>
-
-                <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                <p className="text-gray-400 text-sm mb-6">{plan.description}</p>
-
-                <div className="mb-6">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-bold text-green-400">FREE</span>
-                  </div>
-                  {plan.betaFree && (
-                    <p className="text-sm text-green-300 mt-2 font-semibold">
-                      ✨ Free during beta period
-                    </p>
-                  )}
-                  {plan.transactionFee && (
-                    <div className="mt-3 px-3 py-2 bg-[#A88A86]/20 rounded-lg border border-[#A88A86]/30">
-                      <p className="text-[#A88A86] font-bold text-sm">
-                        {plan.transactionFee} Transaction Fee
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <Button
-                  onClick={() => handleSubscribe(plan)}
-                  disabled={isCurrentPlan || isProcessing}
-                  className={`w-full py-6 text-lg font-bold rounded-xl transition-all ${
-                    isCurrentPlan
-                      ? 'bg-gray-600 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white'
+                <div
+                  className={`relative bg-white/5 backdrop-blur-2xl rounded-3xl p-10 border-2 transition-all hover:shadow-2xl hover:shadow-purple-500/20 ${
+                    plan.popular ? "border-[#A88A86] ring-4 ring-[#A88A86]/30" : "border-white/10"
                   }`}
                 >
-                  {isProcessing ? 'Activating...' : isCurrentPlan ? 'Current Plan' : 'Activate Free Beta'}
-                </Button>
+                  {plan.badge && (
+                    <div className="absolute -top-5 left-1/2 -translate-x-1/2">
+                      <Badge className="bg-gradient-to-r from-[#A88A86] to-[#d4a59a] text-black font-bold px-6 py-2 text-lg shadow-lg">
+                        {plan.badge}
+                      </Badge>
+                    </div>
+                  )}
 
-                <ul className="mt-8 space-y-4">
-                  {plan.featureList.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-3 text-gray-300">
-                      {feature.startsWith('✓') ? (
+                  {isActive && (
+                    <div className="absolute -top-5 right-6">
+                      <Badge className="bg-green-600 text-white px-4 py-2">
+                        <Check className="w-4 h-4 mr-1" />
+                        Active
+                      </Badge>
+                    </div>
+                  )}
+
+                  <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${plan.color} p-5 mb-6 shadow-xl`}>
+                    <Icon className="w-10 h-10 text-white" />
+                  </div>
+
+                  <h3 className="text-3xl font-bold text-white mb-3">{plan.name}</h3>
+                  <p className="text-gray-400 mb-8">{plan.description}</p>
+
+                  <div className="mb-10 text-center">
+                    <div className="text-5xl font-bold text-white mb-2">{plan.price}</div>
+                    {plan.type !== "free" && (
+                      <p className="text-green-400 font-bold text-lg flex items-center justify-center gap-2">
+                        <Gift className="w-5 h-5" />
+                        Free during beta
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    onClick={() => handleActivatePlan(plan.type)}
+                    disabled={isActive || isProcessing}
+                    size="lg"
+                    className={`w-full py-8 text-xl font-bold rounded-2xl transition-all transform hover:scale-105 ${
+                      isActive
+                        ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                        : plan.popular
+                        ? "bg-gradient-to-r from-[#A88A86] to-[#d4a59a] hover:from-[#9a7a76] hover:to-[#c49387] text-black shadow-2xl"
+                        : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                    }`}
+                  >
+                    {isProcessing
+                      ? "Activating..."
+                      : isActive
+                      ? <>Current Plan <Check className="w-6 h-6 ml-2" /></>
+                      : plan.type === "free"
+                      ? "Continue as Player"
+                      : <>Get Started Free <ArrowRight className="w-6 h-6 ml-2" /></>}
+                  </Button>
+
+                  <ul className="mt-10 space-y-4">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-3">
                         <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                      ) : feature.startsWith('✗') ? (
-                        <X className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                      )}
-                      <span className="text-sm">{feature.replace(/^[✓✗]\s*/, '')}</span>
-                    </li>
-                  ))}
-                </ul>
+                        <span className="text-gray-300 text-sm leading-relaxed">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* FAQ */}
-        <div className="text-center text-gray-400 text-sm space-y-2">
-          <p className="text-lg font-semibold text-white mb-4">Beta Testing FAQ</p>
-          <p className="mb-2"><strong className="text-green-400">Q: How long is beta free?</strong><br/>A: All features are free during the beta testing period while we build and improve the platform!</p>
-          <p className="mb-2"><strong className="text-green-400">Q: What happens after beta?</strong><br/>A: Beta users will get exclusive early-bird pricing when we launch officially.</p>
-          <p className="mb-2"><strong className="text-green-400">Q: For players:</strong><br/>A: Completely free forever to browse, purchase, and download clips</p>
-          <p>Your feedback during beta is invaluable. Help us build something amazing!</p>
+        {/* Social Proof */}
+        <div className="text-center">
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-12 border border-white/10 inline-block">
+            <Trophy className="w-20 h-20 text-[#A88A86] mx-auto mb-6" />
+            <h2 className="text-4xl font-bold text-white mb-8">
+              Trusted by Lacrosse Creators Nationwide
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              {["2K+", "500+", "50+", "4.9"].map((stat, i) => (
+                <div key={i}>
+                  <div className="text-5xl font-bold text-[#A88A86] mb-2">{stat}</div>
+                  <div className="text-gray-400">
+                    {["Beta Creators", "Clips Uploaded", "Teams Covered", "Star Rating"][i]}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

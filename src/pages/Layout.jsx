@@ -5,6 +5,7 @@ import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import { User, Crown, Menu, X, Home, Lock, LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import RoleSwitcher from "@/components/RoleSwitcherSettings";
 
 export default function Layout({ children, currentPageName = "" }) {
   const { user, setUser, logout } = useAuth();

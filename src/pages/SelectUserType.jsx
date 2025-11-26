@@ -1,80 +1,50 @@
 // src/pages/SelectUserType.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 import {
-  Upload, PlayCircle, Users, Sparkles, Trophy, ArrowRight,
-  CheckCircle, Film, ShoppingBag, HeartHandshake
+  Film, Trophy, HeartHandshake, Sparkles, ArrowRight, CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function SelectUserType() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
+  // Auto-skip if user already has a role
   useEffect(() => {
-    checkUserAndRedirect();
-  }, []);
-
-  const checkUserAndRedirect = async () => {
-    try {
-      const userData = await base44.auth.me();
-      
+    const user = localStorage.getItem("user");
+    if (user) {
+      const userData = JSON.parse(user);
       if (userData.user_type) {
-        if (userData.user_type === "player" || userData.user_type === "parent") {
-          if (userData.profile_completed) {
-            navigate(createPageUrl("Marketplace"), { replace: true });
-          } else {
-            navigate(createPageUrl("PlayerProfile"), { replace: true });
-          }
+        if (userData.user_type === "creator") {
+          navigate("/filerenamer", { replace: true });
         } else {
-          navigate(createPageUrl("FileRenamer"), { replace: true });
+          navigate("/marketplace", { replace: true });
         }
       }
-    } catch (err) {
-      console.log("Not logged in yet");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [navigate]);
 
-  const selectUserType = async (type) => {
-    if (saving) return;
-    setSaving(true);
+  const selectUserType = (type) => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    user.user_type = type;
+    localStorage.setItem("user", JSON.stringify(user));
 
-    try {
-      const userData = await base44.auth.me();
-      await base44.auth.updateMe({ user_type: type });
+    toast.success("Role selected!", {
+      description: `You're now a ${type.toUpperCase()}`,
+      icon: <Sparkles className="w-5 h-5" />
+    });
 
-      toast.success("Welcome to Flippa!", {
-        description: type === "creator" 
-          ? "Let’s get your first clips uploaded"
-          : "Let’s set up your player profile",
-        icon: <Sparkles className="w-5 h-5" />
-      });
-
+    setTimeout(() => {
       if (type === "creator") {
-        navigate(createPageUrl("FileRenamer"));
+        navigate("/filerenamer");
       } else {
-        navigate(createPageUrl("PlayerProfile"));
+        navigate("/marketplace");
       }
-    } catch (err) {
-      toast.error("Failed to save choice. Try again.");
-      setSaving(false);
-    }
+    }, 500);
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-white text-2xl font-light animate-pulse">Loading your experience...</div>
-      </div>
-    );
-  }
 
   const options = [
     {
@@ -83,11 +53,9 @@ export default function SelectUserType() {
       subtitle: "Film games • Edit clips • Earn money",
       icon: Film,
       gradient: "from-purple-500 to-pink-600",
-      hover: "hover:border-purple-500",
       button: "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700",
       features: ["Upload unlimited footage", "AI-powered editing tools", "Sell clips directly", "Keep 85–95% of earnings"],
-      badge: "MOST POPULAR",
-      badgeColor: "from-purple-600 to-pink-600"
+      badge: "MOST POPULAR"
     },
     {
       type: "player",
@@ -95,7 +63,6 @@ export default function SelectUserType() {
       subtitle: "Get tagged • Build your highlight reel",
       icon: Trophy,
       gradient: "from-amber-500 to-orange-600",
-      hover: "hover:border-amber-500",
       button: "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700",
       features: ["Get tagged in game clips", "Buy your best moments", "Download forever", "100% free forever"],
       badge: "FREE FOREVER"
@@ -106,7 +73,6 @@ export default function SelectUserType() {
       subtitle: "Manage your athlete’s clips",
       icon: HeartHandshake,
       gradient: "from-emerald-500 to-green-600",
-      hover: "hover:border-emerald-500",
       button: "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700",
       features: ["Add multiple players", "Buy clips for your kids", "Track recruiting progress", "Peace of mind"],
       badge: "FAMILY PLAN"
@@ -114,23 +80,16 @@ export default function SelectUserType() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4 overflow-hidden relative">
-      {/* Animated Background */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-96 h-96 bg-purple-600 rounded-full blur-3xl opacity-20 animate-pulse" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-emerald-600 rounded-full blur-3xl opacity-20 animate-pulse delay-1000" />
       </div>
 
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;900&display=swap');
-      `}</style>
-
-      <div className="max-w-7xl mx-auto relative z-10" style={{ fontFamily: "'Urbanist', sans-serif" }}>
-        {/* Hero */}
+      <div className="max-w-7xl mx-auto relative z-10">
         <div className="text-center mb-16">
           <Badge className="mb-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-2 text-lg">
-            <Sparkles className="w-5 h-5 mr-2" />
-            Welcome to Flippa
+            <Sparkles className="w-5 h-5 mr-2" /> Welcome to Flippa
           </Badge>
           <h1 className="text-6xl md:text-7xl font-bold text-white mb-6">
             How will you use Flippa?
@@ -140,21 +99,18 @@ export default function SelectUserType() {
           </p>
         </div>
 
-        {/* Options Grid */}
         <div className="grid md:grid-cols-3 gap-10 max-w-6xl mx-auto">
           {options.map((option) => {
             const Icon = option.icon;
             return (
               <div
                 key={option.type}
-                className={`relative group transition-all duration-500 hover:-translate-y-6 ${
-                  option.type === "creator" ? "md:scale-110" : ""
-                }`}
+                className="relative group transition-all duration-500 hover:-translate-y-6"
               >
-                <div className={`relative bg-white/5 backdrop-blur-2xl rounded-3xl p-10 border-2 border-white/10 ${option.hover} transition-all hover:shadow-2xl hover:shadow-purple-500/20`}>
+                <div className="relative bg-white/5 backdrop-blur-2xl rounded-3xl p-10 border-2 border-white/10 hover:border-white/30 transition-all hover:shadow-2xl">
                   {option.badge && (
                     <div className="absolute -top-5 left-1/2 -translate-x-1/2">
-                      <Badge className={`bg-gradient-to-r ${option.badgeColor || "from-[#A88A86] to-[#d4a59a]"} text-black font-bold px-6 py-2 text-sm shadow-lg`}>
+                      <Badge className={`bg-gradient-to-r from-[#A88A86] to-[#d4a59a] text-black font-bold px-6 py-2 text-sm shadow-lg`}>
                         {option.badge}
                       </Badge>
                     </div>
@@ -182,16 +138,11 @@ export default function SelectUserType() {
 
                   <Button
                     onClick={() => selectUserType(option.type)}
-                    disabled={saving}
                     size="lg"
                     className={`w-full py-8 text-xl font-bold rounded-2xl ${option.button} text-white shadow-2xl transition-all hover:scale-105`}
                   >
-                    {saving ? "Saving..." : (
-                      <>
-                        {option.type === "creator" ? "Start Creating" : option.type === "player" ? "I’m a Player" : "I’m a Parent"}
-                        <ArrowRight className="w-6 h-6 ml-3" />
-                      </>
-                    )}
+                    {option.type === "creator" ? "Start Creating" : option.type === "player" ? "I’m a Player" : "I’m a Parent"}
+                    <ArrowRight className="w-6 h-6 ml-3" />
                   </Button>
                 </div>
               </div>
@@ -199,10 +150,9 @@ export default function SelectUserType() {
           })}
         </div>
 
-        {/* Bottom Note */}
         <div className="text-center mt-16">
           <p className="text-gray-400 text-lg">
-            <span className="text-white font-semibold">Not sure?</span> You can change your role anytime in Settings
+            <span className="text-white font-semibold">Not sure?</span> You can change your role anytime
           </p>
         </div>
       </div>

@@ -1,10 +1,4 @@
-<<<<<<< HEAD
 python -m venv venv
 .\venv\Scripts\Activate
 npm install
-=======
-python -m venv venv
-.\venv\Scripts\Activate
-npm install
->>>>>>> cd738166eff61c4e0c545c469221835d2734fe9e
 npm run start
